@@ -6,7 +6,6 @@ from bidi.algorithm import get_display
 import io
 import zipfile
 
-# دالة معالجة النصوص العربية
 def format_arabic(text):
     if pd.isna(text) or text == "" or str(text).lower() == "nan":
         return ""
@@ -16,16 +15,25 @@ def format_arabic(text):
 
 st.title("نظام توليد استمارات الترحيل 📄")
 
-# تهيئة الذاكرة المؤقتة (Session State) لحفظ الملف بعد توليده حتى لا يختفي
+# تهيئة الذاكرة المؤقتة وحالة الملف الحالي
 if 'zip_file_data' not in st.session_state:
     st.session_state.zip_file_data = None
+if 'current_file_name' not in st.session_state:
+    st.session_state.current_file_name = None
 
-# رفع ملف الإكسل
 uploaded_file = st.file_uploader("قم برفع ملف الإكسل هنا", type=["xlsx"])
+
+# تفريغ الذاكرة فوراً إذا تم رفع ملف جديد أو إزالة الملف الحالي لتجنب الأزرار الوهمية
+if uploaded_file is not None:
+    if st.session_state.current_file_name != uploaded_file.name:
+        st.session_state.zip_file_data = None
+        st.session_state.current_file_name = uploaded_file.name
+else:
+    st.session_state.zip_file_data = None
+    st.session_state.current_file_name = None
 
 if uploaded_file is not None:
     if st.button("توليد الاستمارات"):
-        # إظهار رسالة جاري التحميل أثناء عمل الكود
         with st.spinner('جاري معالجة البيانات وتوليد الاستمارات... يرجى الانتظار'):
             try:
                 df = pd.read_excel(uploaded_file, skiprows=2)
@@ -33,7 +41,7 @@ if uploaded_file is not None:
                 df = df.dropna(how='all')
                 
                 template_pdf = 'استمارة ترحيل بضاعة .pdf'
-                font_path = "arial.ttf"
+                font_path = "ARIAL.TTF" # تأكد أن الاسم يطابق المرفوع في GitHub
                 
                 COORDS = {
                     'رقم_الاستمارة': (220, 440),
@@ -100,15 +108,14 @@ if uploaded_file is not None:
                         safe_driver_name = driver_name.replace('/', '-').replace('\\', '-')
                         zip_file.writestr(f"استمارة_{form_num}_{safe_driver_name}.pdf", pdf_bytes)
 
-                # حفظ الملف المضغوط في الذاكرة المؤقتة للتطبيق
                 st.session_state.zip_file_data = zip_buffer.getvalue()
-                st.success("تم توليد جميع الاستمارات بنجاح! 🎉")
 
             except Exception as e:
                 st.error(f"حدث خطأ أثناء المعالجة: {e}")
 
-# عرض زر التحميل بشكل مستقل بالاعتماد على الذاكرة المؤقتة
+# عرض رسالة النجاح وزر التحميل فقط إذا كان الملف متوفراً في الذاكرة
 if st.session_state.zip_file_data is not None:
+    st.success("تم توليد جميع الاستمارات بنجاح! يمكنك الآن تحميلها. 🎉")
     st.download_button(
         label="تحميل الاستمارات (ملف Zip)",
         data=st.session_state.zip_file_data,
