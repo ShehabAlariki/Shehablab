@@ -5,15 +5,29 @@ import arabic_reshaper
 from bidi.algorithm import get_display
 import io
 import zipfile
+import os
+
+# إعدادات مخصصة لدعم اللغة العربية بشكل كامل
+arabic_reshaper_config = {
+    'delete_harakat': True,
+    'support_ligatures': True
+}
+reshaper = arabic_reshaper.ArabicReshaper(configuration=arabic_reshaper_config)
 
 def format_arabic(text):
     if pd.isna(text) or text == "" or str(text).lower() == "nan":
         return ""
     text = str(text)
-    reshaped_text = arabic_reshaper.reshape(text)
+    reshaped_text = reshaper.reshape(text)
     return get_display(reshaped_text)
 
 st.title("نظام توليد استمارات الترحيل 📄")
+
+# التحقق الصارم من وجود ملف الخط بالاسم الصحيح
+font_file_name = "arial.ttf" # تم التحديث للأحرف الصغيرة
+if not os.path.exists(font_file_name):
+    st.error(f"⚠️ خطأ حرج: ملف الخط '{font_file_name}' غير موجود في المستودع بنفس حالة الأحرف. يرجى التأكد من رفعه.")
+    st.stop() 
 
 # تهيئة الذاكرة المؤقتة وحالة الملف الحالي
 if 'zip_file_data' not in st.session_state:
@@ -41,7 +55,6 @@ if uploaded_file is not None:
                 df = df.dropna(how='all')
                 
                 template_pdf = 'استمارة ترحيل بضاعة .pdf'
-                font_path = "ARIAL.TTF" # تأكد أن الاسم يطابق المرفوع في GitHub
                 
                 COORDS = {
                     'رقم_الاستمارة': (220, 440),
@@ -76,11 +89,9 @@ if uploaded_file is not None:
                         qty_num = qty_full[0] if len(qty_full) > 0 else ""
                         qty_unit = qty_full[1] if len(qty_full) > 1 else ""
                         
-                        try:
-                            page.insert_font(fontname="arab", fontfile=font_path)
-                            font_name = "arab"
-                        except:
-                            font_name = "helv"
+                        # إجبار التطبيق على قراءة الخط العربي
+                        page.insert_font(fontname="arab", fontfile=font_file_name)
+                        font_name = "arab"
                         
                         def add_text(text, key):
                             if text == "" or pd.isna(text): return
